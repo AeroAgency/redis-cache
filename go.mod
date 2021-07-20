@@ -1,4 +1,4 @@
-module redis-cache
+module github.com/AeroAgency/redis-cache
 
 go 1.13
 
