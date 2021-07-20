@@ -1,4 +1,4 @@
-module stocks
+module redis-cache
 
 go 1.13
 
