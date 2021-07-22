@@ -24,16 +24,22 @@ func NewCacheService(
 	}
 }
 
-// Set Chache Value for Tag
-func (s CacheService) SetByTag(tag string, value interface{}) {
+// Set Cache Value for Tag
+func (s CacheService) SetByTag(tag string, value interface{}, expire int) {
 	jsonValue, err := json.Marshal(value)
 	_, err = s.redisConn.Do("HMSET", tag, "value", jsonValue)
 	if err != nil {
 		log.Fatal(err)
 	}
+	if expire != 0 {
+		_, err = s.redisConn.Do("EXPIRE", tag, expire)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 }
 
-// Get Chache Value for Tag
+// Get Cache Value for Tag
 func (s CacheService) GetByTag(tag string, v interface{}) (result bool) {
 	exists, err := redis.Bool(s.redisConn.Do("EXISTS", tag))
 	if err != nil {
@@ -57,7 +63,7 @@ func (s CacheService) GetByTag(tag string, v interface{}) (result bool) {
 	return true
 }
 
-// Delete Chache Value for Tag
+// Delete Cache Value for Tag
 func (s CacheService) DeleteByTag(tag string) {
 	_, err := redis.Bool(s.redisConn.Do("DEL", tag))
 	if err != nil {
