@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/gomodule/redigo/redis"
 	"github.com/rs/zerolog"
 	"log"
@@ -69,4 +70,28 @@ func (s CacheService) DeleteByTag(tag string) {
 	if err != nil {
 		log.Println(err)
 	}
+}
+
+// Delete Cache Value for Tag
+func (s CacheService) DeleteTagsByPattern(pattern string) error {
+	iter := 0
+	keys := []string{}
+	for {
+		arr, err := redis.Values(s.redisConn.Do("SCAN", iter, "MATCH", pattern))
+		if err != nil {
+			return fmt.Errorf("error retrieving '%s' keys", pattern)
+		}
+
+		iter, _ = redis.Int(arr[0], nil)
+		k, _ := redis.Strings(arr[1], nil)
+		keys = append(keys, k...)
+
+		if iter == 0 {
+			break
+		}
+	}
+	for _, key := range keys {
+		s.DeleteByTag(key)
+	}
+	return nil
 }
