@@ -10,30 +10,34 @@ import (
 
 // Сервис для кеширования в Redis
 type CacheService struct {
-	redisConn redis.Conn
+	redisPool redis.Pool
 	logger    zerolog.Logger
 }
 
 // Конструктор
 func NewCacheService(
 	logger zerolog.Logger,
-	redisConn redis.Conn,
+	redisPool redis.Pool,
 ) *CacheService {
 	return &CacheService{
 		logger:    logger,
-		redisConn: redisConn,
+		redisPool: redisPool,
 	}
 }
 
 // Set Cache Value for Tag
 func (s CacheService) SetByTag(tag string, value interface{}, expire int) {
+	c := s.redisPool.Get()
+	defer c.Close()
+
 	jsonValue, err := json.Marshal(value)
-	_, err = s.redisConn.Do("HMSET", tag, "value", jsonValue)
+
+	_, err = c.Do("HMSET", tag, "value", jsonValue)
 	if err != nil {
 		log.Fatal(err)
 	}
 	if expire != 0 {
-		_, err = s.redisConn.Do("EXPIRE", tag, expire)
+		_, err = c.Do("EXPIRE", tag, expire)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -42,7 +46,10 @@ func (s CacheService) SetByTag(tag string, value interface{}, expire int) {
 
 // Get Cache Value for Tag
 func (s CacheService) GetByTag(tag string, v interface{}) (result bool) {
-	exists, err := redis.Bool(s.redisConn.Do("EXISTS", tag))
+	c := s.redisPool.Get()
+	defer c.Close()
+
+	exists, err := redis.Bool(c.Do("EXISTS", tag))
 	if err != nil {
 		log.Println(err)
 		return false
@@ -51,7 +58,7 @@ func (s CacheService) GetByTag(tag string, v interface{}) (result bool) {
 		return false
 	}
 
-	value, err := redis.String(s.redisConn.Do("HGET", tag, "value"))
+	value, err := redis.String(c.Do("HGET", tag, "value"))
 	if err != nil {
 		log.Println(err)
 		return false
@@ -66,7 +73,9 @@ func (s CacheService) GetByTag(tag string, v interface{}) (result bool) {
 
 // Delete Cache Value for Tag
 func (s CacheService) DeleteByTag(tag string) {
-	_, err := redis.Bool(s.redisConn.Do("DEL", tag))
+	c := s.redisPool.Get()
+	defer c.Close()
+	_, err := redis.Bool(c.Do("DEL", tag))
 	if err != nil {
 		log.Println(err)
 	}
@@ -74,10 +83,12 @@ func (s CacheService) DeleteByTag(tag string) {
 
 // Delete Cache Value for Tag
 func (s CacheService) DeleteTagsByPattern(pattern string) error {
+	c := s.redisPool.Get()
+	defer c.Close()
 	iter := 0
 	keys := []string{}
 	for {
-		arr, err := redis.Values(s.redisConn.Do("SCAN", iter, "MATCH", pattern))
+		arr, err := redis.Values(c.Do("SCAN", iter, "MATCH", pattern))
 		if err != nil {
 			return fmt.Errorf("error retrieving '%s' keys", pattern)
 		}
