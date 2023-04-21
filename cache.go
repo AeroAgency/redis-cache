@@ -34,12 +34,12 @@ func (s CacheService) SetByTag(tag string, value interface{}, expire int) {
 
 	_, err = c.Do("HMSET", tag, "value", jsonValue)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	if expire != 0 {
 		_, err = c.Do("EXPIRE", tag, expire)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 	}
 }
