@@ -9,14 +9,14 @@ import (
 
 // Сервис для кеширования в Redis
 type CacheService struct {
-	redisPool *redis.Pool
+	redisPool redis.Pool
 	logger    zerolog.Logger
 }
 
 // Конструктор
 func NewCacheService(
 	logger zerolog.Logger,
-	redisPool *redis.Pool,
+	redisPool redis.Pool,
 ) *CacheService {
 	return &CacheService{
 		logger:    logger,
@@ -25,7 +25,7 @@ func NewCacheService(
 }
 
 // Set Cache Value for Tag
-func (s *CacheService) SetByTag(tag string, value interface{}, expire int) {
+func (s CacheService) SetByTag(tag string, value interface{}, expire int) {
 	c := s.redisPool.Get()
 	defer c.Close()
 
@@ -44,7 +44,7 @@ func (s *CacheService) SetByTag(tag string, value interface{}, expire int) {
 }
 
 // Get Cache Value for Tag
-func (s *CacheService) GetByTag(tag string, v interface{}) (result bool) {
+func (s CacheService) GetByTag(tag string, v interface{}) (result bool) {
 	c := s.redisPool.Get()
 	defer c.Close()
 
@@ -71,7 +71,7 @@ func (s *CacheService) GetByTag(tag string, v interface{}) (result bool) {
 }
 
 // Delete Cache Value for Tag
-func (s *CacheService) DeleteByTag(tag string) {
+func (s CacheService) DeleteByTag(tag string) {
 	c := s.redisPool.Get()
 	defer c.Close()
 	_, err := redis.Bool(c.Do("DEL", tag))
@@ -81,7 +81,7 @@ func (s *CacheService) DeleteByTag(tag string) {
 }
 
 // Delete Cache Value for Tag
-func (s *CacheService) DeleteTagsByPattern(pattern string) error {
+func (s CacheService) DeleteTagsByPattern(pattern string) error {
 	c := s.redisPool.Get()
 	defer c.Close()
 	iter := 0
