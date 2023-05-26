@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gomodule/redigo/redis"
 	"github.com/rs/zerolog"
+	"log"
 )
 
 // Сервис для кеширования в Redis
@@ -33,12 +34,12 @@ func (s CacheService) SetByTag(tag string, value interface{}, expire int) {
 
 	_, err = c.Do("HMSET", tag, "value", jsonValue)
 	if err != nil {
-		s.logger.Err(err)
+		log.Println(err)
 	}
 	if expire != 0 {
 		_, err = c.Do("EXPIRE", tag, expire)
 		if err != nil {
-			s.logger.Err(err)
+			log.Println(err)
 		}
 	}
 }
@@ -50,7 +51,7 @@ func (s CacheService) GetByTag(tag string, v interface{}) (result bool) {
 
 	exists, err := redis.Bool(c.Do("EXISTS", tag))
 	if err != nil {
-		s.logger.Err(err)
+		log.Println(err)
 		return false
 	}
 	if exists == false {
@@ -59,12 +60,12 @@ func (s CacheService) GetByTag(tag string, v interface{}) (result bool) {
 
 	value, err := redis.String(c.Do("HGET", tag, "value"))
 	if err != nil {
-		s.logger.Err(err)
+		log.Println(err)
 		return false
 	}
 	err = json.Unmarshal([]byte(value), v)
 	if err != nil {
-		s.logger.Err(err)
+		log.Println(err)
 		return false
 	}
 	return true
@@ -76,7 +77,7 @@ func (s CacheService) DeleteByTag(tag string) {
 	defer c.Close()
 	_, err := redis.Bool(c.Do("DEL", tag))
 	if err != nil {
-		s.logger.Err(err)
+		log.Println(err)
 	}
 }
 
