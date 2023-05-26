@@ -5,19 +5,18 @@ import (
 	"fmt"
 	"github.com/gomodule/redigo/redis"
 	"github.com/rs/zerolog"
-	"log"
 )
 
 // Сервис для кеширования в Redis
 type CacheService struct {
-	redisPool redis.Pool
+	redisPool *redis.Pool
 	logger    zerolog.Logger
 }
 
 // Конструктор
 func NewCacheService(
 	logger zerolog.Logger,
-	redisPool redis.Pool,
+	redisPool *redis.Pool,
 ) *CacheService {
 	return &CacheService{
 		logger:    logger,
@@ -26,7 +25,7 @@ func NewCacheService(
 }
 
 // Set Cache Value for Tag
-func (s CacheService) SetByTag(tag string, value interface{}, expire int) {
+func (s *CacheService) SetByTag(tag string, value interface{}, expire int) {
 	c := s.redisPool.Get()
 	defer c.Close()
 
@@ -34,24 +33,24 @@ func (s CacheService) SetByTag(tag string, value interface{}, expire int) {
 
 	_, err = c.Do("HMSET", tag, "value", jsonValue)
 	if err != nil {
-		log.Println(err)
+		s.logger.Err(err)
 	}
 	if expire != 0 {
 		_, err = c.Do("EXPIRE", tag, expire)
 		if err != nil {
-			log.Println(err)
+			s.logger.Err(err)
 		}
 	}
 }
 
 // Get Cache Value for Tag
-func (s CacheService) GetByTag(tag string, v interface{}) (result bool) {
+func (s *CacheService) GetByTag(tag string, v interface{}) (result bool) {
 	c := s.redisPool.Get()
 	defer c.Close()
 
 	exists, err := redis.Bool(c.Do("EXISTS", tag))
 	if err != nil {
-		log.Println(err)
+		s.logger.Err(err)
 		return false
 	}
 	if exists == false {
@@ -60,29 +59,29 @@ func (s CacheService) GetByTag(tag string, v interface{}) (result bool) {
 
 	value, err := redis.String(c.Do("HGET", tag, "value"))
 	if err != nil {
-		log.Println(err)
+		s.logger.Err(err)
 		return false
 	}
 	err = json.Unmarshal([]byte(value), v)
 	if err != nil {
-		log.Println(err)
+		s.logger.Err(err)
 		return false
 	}
 	return true
 }
 
 // Delete Cache Value for Tag
-func (s CacheService) DeleteByTag(tag string) {
+func (s *CacheService) DeleteByTag(tag string) {
 	c := s.redisPool.Get()
 	defer c.Close()
 	_, err := redis.Bool(c.Do("DEL", tag))
 	if err != nil {
-		log.Println(err)
+		s.logger.Err(err)
 	}
 }
 
 // Delete Cache Value for Tag
-func (s CacheService) DeleteTagsByPattern(pattern string) error {
+func (s *CacheService) DeleteTagsByPattern(pattern string) error {
 	c := s.redisPool.Get()
 	defer c.Close()
 	iter := 0
