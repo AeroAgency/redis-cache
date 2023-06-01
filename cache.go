@@ -5,16 +5,15 @@ import (
 	"fmt"
 	"github.com/gomodule/redigo/redis"
 	"github.com/rs/zerolog"
-	"log"
 )
 
-// Сервис для кеширования в Redis
+// CacheService Сервис для кеширования в Redis
 type CacheService struct {
 	redisPool redis.Pool
 	logger    zerolog.Logger
 }
 
-// Конструктор
+// NewCacheService Конструктор
 func NewCacheService(
 	logger zerolog.Logger,
 	redisPool redis.Pool,
@@ -34,24 +33,24 @@ func (s CacheService) SetByTag(tag string, value interface{}, expire int) {
 
 	_, err = c.Do("HMSET", tag, "value", jsonValue)
 	if err != nil {
-		log.Println(err)
+		s.logger.Error().Err(err)
 	}
 	if expire != 0 {
 		_, err = c.Do("EXPIRE", tag, expire)
 		if err != nil {
-			log.Println(err)
+			s.logger.Error().Err(err)
 		}
 	}
 }
 
-// Get Cache Value for Tag
+// GetByTag Get Cache Value for Tag
 func (s CacheService) GetByTag(tag string, v interface{}) (result bool) {
 	c := s.redisPool.Get()
 	defer c.Close()
 
 	exists, err := redis.Bool(c.Do("EXISTS", tag))
 	if err != nil {
-		log.Println(err)
+		s.logger.Error().Err(err)
 		return false
 	}
 	if exists == false {
@@ -60,28 +59,28 @@ func (s CacheService) GetByTag(tag string, v interface{}) (result bool) {
 
 	value, err := redis.String(c.Do("HGET", tag, "value"))
 	if err != nil {
-		log.Println(err)
+		s.logger.Error().Err(err)
 		return false
 	}
 	err = json.Unmarshal([]byte(value), v)
 	if err != nil {
-		log.Println(err)
+		s.logger.Error().Err(err)
 		return false
 	}
 	return true
 }
 
-// Delete Cache Value for Tag
+// DeleteByTag Delete Cache Value for Tag
 func (s CacheService) DeleteByTag(tag string) {
 	c := s.redisPool.Get()
 	defer c.Close()
 	_, err := redis.Bool(c.Do("DEL", tag))
 	if err != nil {
-		log.Println(err)
+		s.logger.Error().Err(err)
 	}
 }
 
-// Delete Cache Value for Tag
+// DeleteTagsByPattern Delete Cache Value for Tag
 func (s CacheService) DeleteTagsByPattern(pattern string) error {
 	c := s.redisPool.Get()
 	defer c.Close()
@@ -103,6 +102,26 @@ func (s CacheService) DeleteTagsByPattern(pattern string) error {
 	}
 	for _, key := range keys {
 		s.DeleteByTag(key)
+	}
+	return nil
+}
+
+// ClearCache Очистить весь кеш
+func (s CacheService) ClearCache() error {
+	err := s.DeleteTagsByPattern("cache:*")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// ClearCacheByTags ClearCacheByTag Очистить кеш по тегу
+func (s CacheService) ClearCacheByTags(tags []string) error {
+	for _, tag := range tags {
+		err := s.DeleteTagsByPattern("cache:" + tag)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
