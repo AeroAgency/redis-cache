@@ -24,60 +24,68 @@ func NewCacheService(
 	}
 }
 
-// Set Cache Value for Tag
-func (s CacheService) SetByTag(tag string, value interface{}, expire int) {
+// SetByTag Set Cache Value for Tag
+func (s CacheService) SetByTag(tag string, value interface{}, expire int) error {
 	c := s.redisPool.Get()
 	defer c.Close()
 
 	jsonValue, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
 
 	_, err = c.Do("HMSET", tag, "value", jsonValue)
 	if err != nil {
 		s.logger.Error().Err(err)
+		return err
 	}
 	if expire != 0 {
 		_, err = c.Do("EXPIRE", tag, expire)
 		if err != nil {
 			s.logger.Error().Err(err)
+			return err
 		}
 	}
+	return nil
 }
 
 // GetByTag Get Cache Value for Tag
-func (s CacheService) GetByTag(tag string, v interface{}) (result bool) {
+func (s CacheService) GetByTag(tag string, v interface{}) (bool, error) {
 	c := s.redisPool.Get()
 	defer c.Close()
 
 	exists, err := redis.Bool(c.Do("EXISTS", tag))
 	if err != nil {
 		s.logger.Error().Err(err)
-		return false
+		return false, err
 	}
 	if exists == false {
-		return false
+		return false, nil
 	}
 
 	value, err := redis.String(c.Do("HGET", tag, "value"))
 	if err != nil {
 		s.logger.Error().Err(err)
-		return false
+		return false, err
 	}
 	err = json.Unmarshal([]byte(value), v)
 	if err != nil {
 		s.logger.Error().Err(err)
-		return false
+		return false, err
 	}
-	return true
+	return true, nil
 }
 
 // DeleteByTag Delete Cache Value for Tag
-func (s CacheService) DeleteByTag(tag string) {
+func (s CacheService) DeleteByTag(tag string) error {
 	c := s.redisPool.Get()
 	defer c.Close()
 	_, err := redis.Bool(c.Do("DEL", tag))
 	if err != nil {
 		s.logger.Error().Err(err)
+		return err
 	}
+	return nil
 }
 
 // DeleteTagsByPattern Delete Cache Value for Tag
@@ -115,7 +123,7 @@ func (s CacheService) ClearCache() error {
 	return nil
 }
 
-// ClearCacheByTags ClearCacheByTag Очистить кеш по тегу
+// ClearCacheByTags Очистить кеш по тегу
 func (s CacheService) ClearCacheByTags(tags []string) error {
 	for _, tag := range tags {
 		err := s.DeleteTagsByPattern("cache:" + tag)
