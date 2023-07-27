@@ -9,14 +9,14 @@ import (
 
 // CacheService Сервис для кеширования в Redis
 type CacheService struct {
-	redisPool redis.Pool
+	redisPool *redis.Pool
 	logger    zerolog.Logger
 }
 
 // NewCacheService Конструктор
 func NewCacheService(
 	logger zerolog.Logger,
-	redisPool redis.Pool,
+	redisPool *redis.Pool,
 ) *CacheService {
 	return &CacheService{
 		logger:    logger,
@@ -24,7 +24,7 @@ func NewCacheService(
 	}
 }
 
-// Set Cache Value for Tag
+// SetByTag Set Cache Value for Tag
 func (s CacheService) SetByTag(tag string, value interface{}, expire int) {
 	c := s.redisPool.Get()
 	defer c.Close()
