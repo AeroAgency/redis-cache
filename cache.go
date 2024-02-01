@@ -4,21 +4,21 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/go-redis/redis/v8"
-	"gitlab.aeroidea.ru/platform/platformlib/go/lib/golang-helpers-lib/logger"
+	"github.com/rs/zerolog"
 	"time"
 )
 
 // CacheService Сервис для кеширования в Redis
 type CacheService struct {
 	client *redis.Client
-	logger logger.AppLoggerInterface
+	logger zerolog.Logger
 	ctx    context.Context
 }
 
 // NewCacheService Конструктор
 func NewCacheService(
 	client *redis.Client,
-	logger logger.AppLoggerInterface,
+	logger zerolog.Logger,
 	ctx context.Context,
 ) *CacheService {
 	return &CacheService{
@@ -32,18 +32,18 @@ func NewCacheService(
 func (s *CacheService) SetByTag(tag string, value interface{}, expire int) error {
 	jsonValue, err := json.Marshal(value)
 	if err != nil {
-		s.logger.Error(err, err.Error())
+		s.logger.Error().Err(err)
 		return err
 	}
 	st := s.client.HMSet(s.ctx, tag, "cache", jsonValue)
 	if st.Err() != nil {
-		s.logger.Error(st.Err(), st.Err().Error())
+		s.logger.Error().Err(st.Err())
 		return err
 	}
 	if expire != 0 {
 		exSt := s.client.Expire(s.ctx, tag, time.Duration(expire)*time.Second)
 		if exSt.Err() != nil {
-			s.logger.Error(exSt.Err(), exSt.Err().Error())
+			s.logger.Error().Err(exSt.Err())
 			return err
 		}
 	}
@@ -56,7 +56,7 @@ func (s *CacheService) GetByTag(tag string, v interface{}) (bool, error) {
 	exSt := s.client.Exists(s.ctx, tag)
 	r, err := exSt.Result()
 	if err != nil {
-		s.logger.Error(err, err.Error())
+		s.logger.Error().Err(err)
 		return false, err
 	}
 	if r == 0 {
@@ -64,12 +64,12 @@ func (s *CacheService) GetByTag(tag string, v interface{}) (bool, error) {
 	}
 	hGet := s.client.HGet(s.ctx, tag, "cache")
 	if err != nil {
-		s.logger.Error(err, err.Error())
+		s.logger.Error().Err(err)
 		return false, err
 	}
 	err = json.Unmarshal([]byte(hGet.Val()), v)
 	if err != nil {
-		s.logger.Error(err, err.Error())
+		s.logger.Error().Err(err)
 		return false, err
 	}
 	return true, nil
@@ -89,13 +89,13 @@ func (s *CacheService) DeleteTagsByPattern(pattern string) error {
 		var err error
 		keys, cursor, err = s.client.Scan(s.ctx, cursor, pattern, 0).Result()
 		if err != nil {
-			s.logger.Error(err, err.Error())
+			s.logger.Error().Err(err)
 			return err
 		}
 		for _, key := range keys {
 			err = s.DeleteByTag(key)
 			if err != nil {
-				s.logger.Error(err, err.Error())
+				s.logger.Error().Err(err)
 				return err
 			}
 		}
@@ -110,7 +110,7 @@ func (s *CacheService) DeleteTagsByPattern(pattern string) error {
 func (s *CacheService) ClearCache() error {
 	err := s.DeleteTagsByPattern("*")
 	if err != nil {
-		s.logger.Error(err, err.Error())
+		s.logger.Error().Err(err)
 		return err
 	}
 	return nil
@@ -121,7 +121,7 @@ func (s *CacheService) ClearCacheByTags(tags []string) error {
 	for _, tag := range tags {
 		err := s.DeleteTagsByPattern(tag + "*")
 		if err != nil {
-			s.logger.Error(err, err.Error())
+			s.logger.Error().Err(err)
 			return err
 		}
 	}

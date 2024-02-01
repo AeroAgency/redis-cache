@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"gitlab.aeroidea.ru/platform/platformlib/go/lib/golang-helpers-lib/logger"
+	"github.com/rs/zerolog"
 	"testing"
 
 	"github.com/go-redis/redis/v8"
@@ -16,10 +16,9 @@ func TestCacheService(t *testing.T) {
 		DB:       0,
 	})
 
-	l := &logger.AppLogger{}
 	ctx := context.Background()
 
-	cacheService := NewCacheService(client, l, ctx)
+	cacheService := NewCacheService(client, zerolog.Nop(), ctx)
 
 	t.Run("Set and Get by Tag", func(t *testing.T) {
 		err := cacheService.SetByTag("test", "value", 10)
